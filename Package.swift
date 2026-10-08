@@ -63,6 +63,12 @@ let llamaCxxSettings: [CXXSetting] = [
     .headerSearchPath("common")
 ]
 
+// Xcode's clang dependency scanner (explicit modules) cannot find C++ stdlib
+// headers while scanning the Cxx-interop module in iOS device archives, even
+// though the same headers resolve fine in incremental builds. Feed the SDK's
+// libc++ include path explicitly to both the scanner and the compiler.
+let llamaCxxStdlibFlag = "-isystem$(SDKROOT)/usr/include/c++/v1"
+
 // MARK: - Package Targets
 
 var packageTargets: [Target] = [
@@ -142,7 +148,8 @@ packageTargets.append(contentsOf: [
         swiftSettings: (Context.environment["BUILD_DOCC"] == nil ? [] : [
             .define("BUILD_DOCC")
         ]) + [
-            .interoperabilityMode(.Cxx)
+            .interoperabilityMode(.Cxx),
+            .unsafeFlags([llamaCxxStdlibFlag])
         ]
     ),
     .testTarget(
