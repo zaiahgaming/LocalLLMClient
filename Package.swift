@@ -67,7 +67,22 @@ let llamaCxxSettings: [CXXSetting] = [
 // headers while scanning the Cxx-interop module in iOS device archives, even
 // though the same headers resolve fine in incremental builds. Feed the SDK's
 // libc++ include path explicitly to both the scanner and the compiler.
-let llamaCxxStdlibFlag = "-isystem$(SDKROOT)/usr/include/c++/v1"
+// On CI runners the toolchain is at a versioned path; try SDKROOT env first,
+// then fall back to the common Xcode install locations.
+func libcxxIncludeFlag() -> String {
+    let path: String
+    if let sdkroot = Context.environment["SDKROOT"], !sdkroot.isEmpty {
+        path = "\(sdkroot)/usr/include/c++/v1"
+    } else {
+        let candidates = [
+            "/Applications/Xcode_26.1.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/include/c++/v1",
+            "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/include/c++/v1",
+        ]
+        path = candidates.first { FileManager.default.fileExists(atPath: $0) } ?? ""
+    }
+    return path.isEmpty ? "" : "-isystem\(path)"
+}
+let llamaCxxStdlibFlag = libcxxIncludeFlag()
 
 // MARK: - Package Targets
 
