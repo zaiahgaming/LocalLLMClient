@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 // TODO: use json_fwd.hpp when possible
 #include <nlohmann/json.hpp>
 
