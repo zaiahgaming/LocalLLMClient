@@ -48,9 +48,29 @@ packageProducts.append(contentsOf: [
 
 // MARK: - llama.cpp Target Settings
 
+// Xcode's clang dependency scanner (explicit modules) cannot find C++ stdlib
+// headers while scanning the Cxx-interop modules in iOS device archives, even
+// though the same headers resolve fine in incremental builds. Feed the SDK's
+// libc++ include path explicitly to the scanner via the C/C++ target settings.
+// On CI runners the toolchain is at a versioned path; try SDKROOT env first,
+// then fall back to the common Xcode install locations.
+func libcxxIncludePath() -> String {
+    if let sdkroot = Context.environment["SDKROOT"], !sdkroot.isEmpty {
+        return "\(sdkroot)/usr/include/c++/v1"
+    }
+    let candidates = [
+        "/Applications/Xcode_26.1.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/include/c++/v1",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/include/c++/v1",
+    ]
+    return candidates.first { FileManager.default.fileExists(atPath: $0) } ?? ""
+}
+let libcxxPath = libcxxIncludePath()
+// clang (and the dependency scanner) accept the joined -isystem<dir> form.
+let clangLibcxxFlags: [String] = libcxxPath.isEmpty ? [] : ["-isystem\(libcxxPath)"]
+
 // Shared by the Apple and Linux definitions of LocalLLMClientLlamaC so they cannot drift apart.
 let llamaCSettings: [CSetting] = [
-    .unsafeFlags(["-w"]),
+    .unsafeFlags(["-w"] + clangLibcxxFlags),
     .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
     .headerSearchPath("."),
     .headerSearchPath("common")
@@ -58,7 +78,7 @@ let llamaCSettings: [CSetting] = [
 
 // mtmd-audio.cpp declares `constexpr bool DEBUG`, which a `DEBUG` macro would break.
 let llamaCxxSettings: [CXXSetting] = [
-    .unsafeFlags(["-UDEBUG"]),
+    .unsafeFlags(["-UDEBUG"] + clangLibcxxFlags),
     .define("LLAMA_BUILD_NUMBER", to: llamaBuildNumber),
     .headerSearchPath("."),
     .headerSearchPath("common")
