@@ -64,14 +64,13 @@ let llamaCxxSettings: [CXXSetting] = [
     .headerSearchPath("common")
 ]
 
-import Foundation
-
+// Xcode's clang dependency scanner (explicit modules) cannot find C++ stdlib
 // headers while scanning the Cxx-interop module in iOS device archives, even
 // though the same headers resolve fine in incremental builds. Feed the SDK's
 // libc++ include path explicitly to both the scanner and the compiler.
 // On CI runners the toolchain is at a versioned path; try SDKROOT env first,
 // then fall back to the common Xcode install locations.
-func libcxxIncludeFlag() -> String {
+func libcxxIncludeFlags() -> [String] {
     let path: String
     if let sdkroot = Context.environment["SDKROOT"], !sdkroot.isEmpty {
         path = "\(sdkroot)/usr/include/c++/v1"
@@ -82,9 +81,11 @@ func libcxxIncludeFlag() -> String {
         ]
         path = candidates.first { FileManager.default.fileExists(atPath: $0) } ?? ""
     }
-    return path.isEmpty ? "" : "-isystem\(path)"
+    // swiftc rejects unknown -i flags itself, so forward via -Xcc (clang accepts
+    // the joined -isystem<dir> form).
+    return path.isEmpty ? [] : ["-Xcc", "-isystem\(path)"]
 }
-let llamaCxxStdlibFlag = libcxxIncludeFlag()
+let llamaCxxStdlibFlags = libcxxIncludeFlags()
 
 // MARK: - Package Targets
 
@@ -166,7 +167,7 @@ packageTargets.append(contentsOf: [
             .define("BUILD_DOCC")
         ]) + [
             .interoperabilityMode(.Cxx),
-            .unsafeFlags([llamaCxxStdlibFlag])
+            .unsafeFlags(llamaCxxStdlibFlags)
         ]
     ),
     .testTarget(
