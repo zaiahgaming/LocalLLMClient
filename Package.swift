@@ -2,6 +2,7 @@
 
 import PackageDescription
 import CompilerPluginSupport
+import Foundation
 
 let llamaVersion = "b8851"
 let llamaBuildNumber = String(llamaVersion.dropFirst())
@@ -63,7 +64,8 @@ let llamaCxxSettings: [CXXSetting] = [
     .headerSearchPath("common")
 ]
 
-// Xcode's clang dependency scanner (explicit modules) cannot find C++ stdlib
+import Foundation
+
 // headers while scanning the Cxx-interop module in iOS device archives, even
 // though the same headers resolve fine in incremental builds. Feed the SDK's
 // libc++ include path explicitly to both the scanner and the compiler.
